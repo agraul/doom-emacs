@@ -88,6 +88,25 @@
   (defadvice! +mu4e--refresh-current-view-a (&rest _)
     :after #'mu4e-mark-execute-all (mu4e-headers-rerun-search))
 
+  (defun +mu4e-set-from-address ()
+    "Set the 'From' address before composing an email.
+
+In replies and follow-up emails, the same email address that was used in a previous email is used. In new emails, ivy is used to select an address interactively. The list of candidates can be provided to set-email-account! or is read from mu4e's server."
+    (unless (and mu4e-compose-parent-message
+                 (let ((to (cdr (car (mu4e-message-field mu4e-compose-parent-message :to))))
+                       (from (cdr (car (mu4e-message-field mu4e-compose-parent-message :from)))))
+                   (if (member to (plist-get mu4e~server-props :personal-addresses))
+                       (setq user-mail-address to)
+                     (if (member from (plist-get mu4e~server-props :personal-addresses))
+                         (setq user-mail-address from)
+                       nil))))
+      (ivy-read "From: "
+                (if-let ((context-addresses (alist-get 'addresses (mu4e-context-vars mu4e~context-current))))
+                         context-addresses
+                      (plist-get mu4e~server-props :personal-addresses))
+                :action (lambda (candidate) (setq user-mail-address candidate)))))
+  (add-hook 'mu4e-compose-pre-hook '+mu4e-set-from-address)
+
   ;; Wrap text in messages
   (setq-hook! 'mu4e-view-mode-hook truncate-lines nil)
 
